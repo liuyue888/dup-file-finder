@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>重复文件查找器</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --line:#e4e7ec; --txt:#24292f; --sub:#6b7280;
+    --accent:#2563eb; --accent-bg:#eff6ff; --danger:#dc2626; --warn-bg:#fffbeb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;}
+  header{position:sticky;top:0;z-index:10;background:var(--card);
+         border-bottom:1px solid var(--line);padding:10px 16px;}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0 8px 0 0;font-weight:600}
+  #search{flex:1;min-width:220px;max-width:520px;padding:7px 12px;border:1px solid var(--line);
+          border-radius:8px;font-size:14px;outline:none}
+  #search:focus{border-color:var(--accent)}
+  button{padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;
+         cursor:pointer;font-size:13px;color:var(--txt)}
+  button:hover{background:#f3f4f6}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:#1d4ed8}
+  button.danger{color:var(--danger);border-color:#fecaca}
+  button.danger:hover{background:#fef2f2}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px}
+  #stat{color:var(--sub);font-size:13px}
+  main{max-width:1280px;margin:14px auto;padding:0 16px 90px}
+  .progress{background:var(--accent-bg);border:1px solid #bfdbfe;border-radius:10px;
+            padding:12px 16px;margin-bottom:12px;font-size:13px;color:#1e40af}
+  .progress .bar{height:6px;background:#dbeafe;border-radius:3px;margin-top:8px;overflow:hidden}
+  .progress .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
+  .group{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden}
+  .ghead{display:flex;align-items:center;gap:12px;padding:9px 14px;background:#f8fafc;
+         border-bottom:1px solid var(--line);cursor:pointer}
+  .ghead .name{font-weight:600;font-size:14px}
+  .ghead .meta{color:var(--sub);font-size:12px}
+  .ghead .sp{flex:1}
+  .gbody{display:none}
+  .group.open .gbody{display:block}
+  .group.open .arrow{transform:rotate(90deg)}
+  .arrow{display:inline-block;transition:transform .15s;color:var(--sub)}
+  table{width:100%;border-collapse:collapse}
+  td{padding:7px 14px;border-top:1px solid #f0f1f3;vertical-align:middle}
+  td.fname{width:34%;font-size:13px;word-break:break-all}
+  td.fpath{color:var(--sub);font-size:12px;word-break:break-all;cursor:pointer}
+  td.fpath:hover{color:var(--accent);text-decoration:underline}
+  td.fsize{width:90px;white-space:nowrap;font-size:12px;color:var(--sub)}
+  td.ftime{width:150px;white-space:nowrap;font-size:12px;color:var(--sub)}
+  td fact{width:150px}
+  td .acts{white-space:nowrap}
+  td input[type=checkbox]{transform:scale(1.15);cursor:pointer}
+  .latest{display:inline-block;background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;
+          border-radius:20px;font-size:11px;padding:0 8px;margin-left:6px}
+  td.fnote{width:290px;font-size:12px;color:var(--sub);line-height:1.45}
+  .lv{display:inline-block;border-radius:6px;font-size:11px;padding:1px 7px;margin-right:6px}
+  .lv-no{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
+  .lv-safe{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+  .lv-warn{background:#ffedd5;color:#c2410c;border:1px solid #fed7aa}
+  .lv-user{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+  .lv-unknown{background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb}
+  .keep{display:inline-block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;
+        border-radius:20px;font-size:11px;padding:0 8px;margin-left:6px}
+  .same{display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fde68a;
+        border-radius:20px;font-size:11px;padding:0 8px;margin-left:6px}
+  .legend{background:var(--card);border:1px solid var(--line);border-radius:10px;
+          padding:8px 14px;margin-bottom:12px;font-size:12px;color:var(--sub);display:flex;gap:14px;flex-wrap:wrap}
+  .selbar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+          padding:10px 20px;display:none;align-items:center;gap:14px;box-shadow:0 -2px 10px rgba(0,0,0,.06);z-index:20}
+  .selbar.show{display:flex}
+  .pager{display:flex;justify-content:center;align-items:center;gap:12px;margin:18px 0}
+  .empty{text-align:center;color:var(--sub);padding:60px 0}
+  dialog{border:1px solid var(--line);border-radius:12px;max-width:560px;width:92%}
+  dialog::backdrop{background:rgba(0,0,0,.25)}
+  dialog h3{margin:0 0 10px;font-size:15px}
+  dialog textarea{width:100%;height:110px;font-size:12px;padding:8px;border:1px solid var(--line);
+                  border-radius:8px;font-family:Consolas,monospace}
+  dialog .hint{color:var(--sub);font-size:12px;margin:6px 0}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;
+         padding:8px 18px;border-radius:8px;font-size:13px;display:none;z-index:50}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>🗂 重复文件查找器</h1>
+    <input id="search" placeholder="搜索文件名或路径…（回车搜索）">
+    <select id="minSize" title="只看大于等于该大小的文件，小的（系统缓存、几KB的文件）自动忽略">
+      <option value="5242880" selected>≥ 5 MB（推荐）</option>
+      <option value="1048576">≥ 1 MB</option>
+      <option value="10485760">≥ 10 MB</option>
+      <option value="52428800">≥ 50 MB</option>
+      <option value="104857600">≥ 100 MB</option>
+      <option value="0">不限大小（含小文件，需重新扫描）</option>
+    </select>
+    <select id="risk" title="按「能不能删」的判定结果筛选">
+      <option value="all">全部性质</option>
+      <option value="safe">只看含「可以删除」的组</option>
+      <option value="user">只看含「你的文件」的组</option>
+      <option value="hide_no">隐藏全是「程序必要文件」的组</option>
+    </select>
+    <select id="sort">
+      <option value="size">按浪费空间排序</option>
+      <option value="count">按文件数排序</option>
+      <option value="name">按名称排序</option>
+    </select>
+    <button id="btnRescan" class="primary">重新扫描</button>
+    <button id="btnSettings">扫描设置</button>
+  </div>
+  <div class="row" style="margin-top:6px"><span id="stat">加载中…</span></div>
+</header>
+
+<main>
+  <div class="legend">
+    <span><span class="lv lv-no">程序必要文件</span>不建议删</span>
+    <span><span class="lv lv-safe">缓存/临时</span>可以删</span>
+    <span><span class="lv lv-warn">安装包/备份</span>谨慎判断</span>
+    <span><span class="lv lv-user">你的文件</span>自行判断</span>
+    <span><span class="lv lv-unknown">未识别</span>先确认来源</span>
+    <span style="color:#1d4ed8">每组会标出「建议保留」的那一份</span>
+    <span><span class="same">同一份</span>与其他路径是同一个文件（目录联接），删一处两处都没</span>
+    <label style="cursor:pointer"><input type="checkbox" id="showDone"> 显示已处理过的组</label>
+    <button id="btnResetHidden" title="清空「已删除/已忽略」的隐藏记录，之前隐藏的组会重新显示（文件不会恢复）">清空隐藏记录</button>
+  </div>
+  <div id="progress" class="progress" style="display:none">
+    <div id="progText">正在扫描…</div>
+    <div class="bar"><i id="progBar"></i></div>
+  </div>
+  <div id="list"></div>
+  <div class="pager" id="pager"></div>
+  <div id="empty" class="empty" style="display:none">没有找到重复文件<br><small>若是首次使用，请点击右上角「重新扫描」开始全盘扫描</small></div>
+</main>
+
+<div class="selbar" id="selbar">
+  <span id="selText">已选 0 个文件</span>
+  <button class="danger" id="btnDelSel">删除所选（移入回收站）</button>
+  <button onclick="clearSel()">取消选择</button>  <span style="color:var(--sub);font-size:12px">按住 Shift 点首尾两个复选框可批量勾选；删除只是移入回收站，误删可还原</span>
+</div>
+
+<dialog id="dlgSettings">
+  <h3>扫描设置</h3>
+  <div class="hint">要扫描的磁盘或目录（每行一个）：</div>
+  <textarea id="roots"></textarea>
+  <div class="hint">要跳过的目录名（每行一个，匹配任意层级下同名目录）：</div>
+  <textarea id="skip"></textarea>
+  <div class="hint">只统计多大的文件（小于该大小的文件在扫描时直接忽略，几 KB 的系统缓存文件建议忽略）：</div>
+  <select id="setMin">
+    <option value="5242880">≥ 5 MB（推荐）</option>
+    <option value="1048576">≥ 1 MB</option>
+    <option value="10485760">≥ 10 MB</option>
+    <option value="52428800">≥ 50 MB</option>
+    <option value="104857600">≥ 100 MB</option>
+    <option value="0">不限大小（含小文件，噪音较多）</option>
+  </select>
+  <div class="hint"><label><input type="checkbox" id="incSame"> 包含同一目录内的重名文件</label></div>
+  <div class="row" style="justify-content:flex-end;margin-top:10px">
+    <button onclick="dlgSettings.close()">取消</button>
+    <button class="primary" id="btnSaveSettings">保存</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 直接双击 app.html 打开时（file:// 协议），无法连接后台服务，给出明确引导 */
+if(location.protocol==='file:'){
+  document.getElementById('stat').textContent='';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('list').innerHTML =
+    '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:24px 28px;'+
+    'font-size:14px;line-height:2;max-width:640px;margin:40px auto">'+
+    '<b style="font-size:15px">你是直接双击 app.html 打开的，这样页面连不上后台服务，所以一直「加载中」。</b><br>'+
+    '正确启动方式（二选一）：<br>'+
+    '1. 双击同目录下的 <b>启动重复文件查找器.bat</b>，会自动打开正确页面；<br>'+
+    '2. 如果后台已经启动过（电脑右下角任务管理器里有 pythonw.exe），直接'+
+    '<a href="http://127.0.0.1:8777"><b>点这里打开 http://127.0.0.1:8777</b></a>。'+
+    '</div>';
+  throw new Error('file:// mode: please start via bat');
+}
+let curPage=1, pages=1, sel=new Set(), statusTimer=null;
+
+const $=s=>document.querySelector(s);
+function fmtSize(n){
+  if(n>=1073741824) return (n/1073741824).toFixed(2)+' GB';
+  if(n>=1048576) return (n/1048576).toFixed(1)+' MB';
+  if(n>=1024) return (n/1024).toFixed(1)+' KB';
+  return n+' B';
+}
+function fmtTime(t){ const d=new Date(t*1000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+
+         String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+
+         String(d.getMinutes()).padStart(2,'0'); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',2600); }
+
+async function api(path, body){
+  const opt = body ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+                   : {};
+  const r = await fetch(path, opt);
+  return r.json();
+}
+
+/* ---------- 状态轮询：仅在扫描进行中轮询，空闲时完全停止（避免持续占用资源） ---------- */
+let lastRunning = false;
+async function pollStatus(){
+  const s = await api('/api/status');
+  const running = s.running;
+  $('#progress').style.display = running ? 'block' : 'none';
+  $('#btnRescan').disabled = running;
+  if(running){
+    $('#progText').textContent =
+      `正在扫描：已检查 ${s.scanned.toLocaleString()} 个文件，其中符合大小要求的 ${(s.kept||0).toLocaleString()} 个\n当前：${s.current}`;
+    $('#progBar').style.width = '100%';
+    $('#stat').textContent = `扫描中… 已检查 ${s.scanned.toLocaleString()} 个文件`;
+    lastRunning = true;
+    clearTimeout(statusTimer); statusTimer=setTimeout(pollStatus, 1500);
+    return;
+  }
+  clearTimeout(statusTimer); statusTimer=null;          // 空闲：停止轮询
+  if(lastRunning){ lastRunning=false; curPage=1; load(); }   // 扫描刚结束：刷新一次列表
+  if(s.error){ $('#stat').textContent = '上次扫描出错：'+s.error; }
+  else if(s.groups_count>0){
+    const t = s.finished_at? new Date(s.finished_at*1000).toLocaleString() : '';
+    $('#stat').textContent = `共 ${s.groups_count.toLocaleString()} 组重复文件`+(t?`（索引时间：${t}）`:'');
+  } else { $('#stat').textContent = '暂无索引，点右上角「重新扫描」开始'; }
+}
+
+/* ---------- 列表 ---------- */
+async function load(){
+  const q = $('#search').value.trim();
+  const sort = $('#sort').value;
+  const ms = $('#minSize').value;
+  const risk = $('#risk').value;
+  const done = $('#showDone').checked ? '1' : '0';
+  const d = await api(`/api/groups?q=${encodeURIComponent(q)}&page=${curPage}&sort=${sort}&min_size=${ms}&risk=${risk}&show_processed=${done}`);
+  if(d.need_rescan){
+    toast(`当前索引是按 ≥${fmtSize(d.index_min_size)} 扫描的，想看更小文件请点「重新扫描」`);
+  }
+  pages = d.pages; if(curPage>pages) {curPage=pages;}
+  const list = $('#list'); list.innerHTML='';
+  $('#empty').style.display = d.groups.length? 'none':'block';
+  const frag = document.createDocumentFragment();
+  for(const g of d.groups){
+    const div = document.createElement('div'); div.className='group';
+    const head = document.createElement('div'); head.className='ghead';
+    head.innerHTML = `<span class="arrow">▶</span>
+      <span class="name">${esc(g.core)}</span>
+      <span class="meta">${g.count} 个文件 · 合计 ${fmtSize(g.total_size)}</span>
+      <span class="sp"></span>`;
+    const keepBtn = document.createElement('button'); keepBtn.textContent='保留建议保留的，其余删除';
+    keepBtn.onclick = async e=>{ e.stopPropagation(); keepNewest(g); };
+    const ignoreBtn = document.createElement('button'); ignoreBtn.textContent='忽略本条';
+    ignoreBtn.title = '这组重复文件都不想动：不再显示，也不删除任何文件';
+    ignoreBtn.onclick = async e=>{
+      e.stopPropagation();
+      await api('/api/ignore',{key:g.key});
+      toast('已忽略本组（未删除任何文件），可在「显示已处理过的组」里找回');
+      load();
+    };
+    head.appendChild(ignoreBtn);
+    head.appendChild(keepBtn);
+    // 懒渲染：只有点开时才生成文件行，避免一页几百组同时渲染导致浏览器卡死
+    head.onclick = ()=>{
+      if(!div.dataset.built){ div.appendChild(buildRows(g)); div.dataset.built='1'; }
+      div.classList.toggle('open');
+    };
+    div.appendChild(head);
+    frag.appendChild(div);
+  }
+  list.appendChild(frag);
+  renderPager(d.total);
+  updateSelbar();
+}
+function buildRows(g){
+  const tbl = document.createElement('div'); tbl.className='gbody';
+  const newest = Math.max(...g.files.map(f=>f.mtime));
+  let html = '<table>';
+  for(const f of g.files){
+    const checked = sel.has(f.path)?'checked':'';
+    const tag = f.mtime===newest?'<span class="latest">最新</span>':'';
+    const keep = f.keep?'<span class="keep">建议保留</span>':'';
+    const same = f.same?'<span class="same">同一份</span>':'';
+    const lv = f.lv || 'unknown';
+    html += `<tr>
+      <td><input type="checkbox" data-p="${esc(f.path)}" ${checked}></td>
+      <td class="fname">${esc(f.name)}${tag}${keep}${same}</td>
+      <td class="fnote" title="${esc(f.note||'')}"><span class="lv lv-${lv}">${esc(f.tag||'')}</span>${esc(f.note||'')}</td>
+      <td class="fsize">${fmtSize(f.size)}</td>
+      <td class="ftime">${fmtTime(f.mtime)}</td>
+      <td class="fpath" title="点击打开所在文件夹" data-p="${esc(f.path)}">${esc(f.path)}</td>
+      <td class="acts"><button class="danger" data-del="${esc(f.path)}">删除</button></td>
+    </tr>`;
+  }
+  tbl.innerHTML = html + '</table>';
+  tbl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.onchange = e=>onCbChange(cb, e.shiftKey);
+  });
+  tbl.querySelectorAll('td.fpath').forEach(el=>{
+    el.onclick = ()=>api('/api/open',{path:el.dataset.p});
+  });
+  tbl.querySelectorAll('button[data-del]').forEach(b=>{
+    b.onclick = ()=>delConfirm([b.dataset.del]);
+  });
+  return tbl;
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* Shift 范围勾选：先点一个，按住 Shift 再点另一个，两者之间（页面顺序）全部选中/取消 */
+let lastCb = null;
+function onCbChange(cb, shiftKey){
+  if(shiftKey && lastCb && lastCb.isConnected && lastCb !== cb){
+    const boxes = [...document.querySelectorAll('#list input[type=checkbox]')];
+    const a = boxes.indexOf(lastCb), b = boxes.indexOf(cb);
+    if(a > -1 && b > -1){
+      const state = cb.checked;
+      boxes.slice(Math.min(a,b), Math.max(a,b)+1).forEach(x=>{
+        x.checked = state;
+        if(state) sel.add(x.dataset.p); else sel.delete(x.dataset.p);
+      });
+    }
+  } else {
+    if(cb.checked) sel.add(cb.dataset.p); else sel.delete(cb.dataset.p);
+  }
+  lastCb = cb;
+  updateSelbar();
+}
+function renderPager(total){
+  const p=$('#pager'); p.innerHTML='';
+  if(pages<=1 && total>0){ p.innerHTML=`<span style="color:var(--sub)">共 ${total} 组</span>`; return; }
+  if(total===0) return;
+  const mk=(t,en)=>{const b=document.createElement('button');b.textContent=t;b.disabled=!en;
+    b.onclick=()=>{curPage+= (t==='上一页'?-1:1); load(); window.scrollTo(0,0);}; return b;};
+  p.appendChild(mk('上一页',curPage>1));
+  const sp=document.createElement('span'); sp.textContent=`第 ${curPage} / ${pages} 页（共 ${total} 组）`; p.appendChild(sp);
+  p.appendChild(mk('下一页',curPage<pages));
+}
+
+/* ---------- 删除（无需二次确认：直接移入回收站，误删可去回收站还原） ---------- */
+function updateSelbar(){
+  $('#selbar').classList.toggle('show', sel.size>0);
+  $('#selText').textContent = `已选 ${sel.size} 个文件`;
+}
+function clearSel(){ sel.clear(); document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false); updateSelbar(); }
+function delConfirm(paths){
+  if(!paths.length) return;
+  api('/api/delete',{paths}).then(r=>{
+    toast(r.msg || (r.ok?'已移入回收站':'删除失败'));
+    sel = new Set([...sel].filter(p=>!paths.includes(p)));
+    load();
+  });
+}
+$('#btnDelSel').onclick = ()=>delConfirm([...sel]);
+function keepNewest(g){
+  const keeper = (g.files.find(f=>f.keep) || g.files[0]);
+  const del = g.files.filter(f=>f.path!==keeper.path).map(f=>f.path);
+  if(!del.length){ toast('该组没有可删除的副本'); return; }
+  api('/api/delete',{paths:del}).then(r=>{
+    toast(`已保留：${keeper.name}；` + (r.msg||''));
+    load();
+  });
+}
+
+/* ---------- 扫描 / 设置 ---------- */
+$('#btnRescan').onclick = async ()=>{
+  const s = await api('/api/settings');
+  const ms = $('#minSize').value;
+  const sz = ms==='0' ? '不限大小（含小文件，噪音较多）' : ('只统计 ≥ '+fmtSize(Number(ms))+' 的文件');
+  if(!confirm(`即将全盘扫描：${s.roots.join('、')}\n${sz}\n首次扫描可能需要几分钟，期间可正常使用页面查看已有结果。\n继续？`)) return;
+  await api('/api/start',{min_size: Number(ms)});
+  pollStatus();
+};
+$('#btnSettings').onclick = async ()=>{
+  const s = await api('/api/settings');
+  $('#roots').value = s.roots.join('\n');
+  $('#skip').value = s.skip.join('\n');
+  $('#incSame').checked = !!s.include_same_dir;
+  $('#setMin').value = String(s.min_size);
+  dlgSettings.showModal();
+};
+$('#btnSaveSettings').onclick = async ()=>{
+  const body = {
+    roots: $('#roots').value.split('\n').map(x=>x.trim()).filter(Boolean),
+    skip: $('#skip').value.split('\n').map(x=>x.trim()).filter(Boolean),
+    include_same_dir: $('#incSame').checked,
+    min_size: Number($('#setMin').value),
+  };
+  await api('/api/start', body);
+  $('#minSize').value = String(body.min_size);
+  dlgSettings.close();
+  toast('设置已保存，开始扫描');
+  pollStatus();
+};
+let searchTimer=null;
+$('#search').addEventListener('input', ()=>{ clearTimeout(searchTimer);
+  searchTimer=setTimeout(()=>{curPage=1; load();},350); });
+$('#sort').onchange = ()=>{curPage=1; load();};
+$('#minSize').onchange = ()=>{curPage=1; load();};
+$('#risk').onchange = ()=>{curPage=1; load();};
+$('#showDone').onchange = ()=>{curPage=1; load();};
+$('#btnResetHidden').onclick = async ()=>{
+  await api('/api/reset_hidden',{});
+  toast('已清空隐藏记录，之前删除/忽略过的组会重新显示');
+  curPage=1; load();
+};
+
+(async ()=>{
+  const s = await api('/api/settings');
+  const v = String(s.min_size);
+  if([...$('#minSize').options].some(o=>o.value===v)) $('#minSize').value = v;
+  pollStatus(); load();
+})();
+</script>
+</body>
+</html>

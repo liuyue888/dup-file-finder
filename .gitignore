@@ -1,0 +1,25 @@
+# 本机运行产生的数据与缓存（含个人路径信息，绝不上传）
+index.json
+settings.json
+deletions.json
+log.txt
+.wtest
+tmp/
+
+# 免安装版构建产物（体积大，改走 GitHub Release 附件）
+python/
+打包/
+重复文件查找器_免安装版/
+*.zip
+
+# Python / 编辑器
+__pycache__/
+*.py[cod]
+.vscode/
+.idea/
+*.swp
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store
